@@ -1,6 +1,7 @@
 package exencoding
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"extend/exruntime"
@@ -84,13 +85,20 @@ func Complete8ByteBigEndian(rawData []byte) (result []byte) {
 	for i, j := 7, l-1; i >= 0 && j >= 0; i, j = i-1, j-1 {
 		res[i] = rawData[j]
 	}
+	var sign byte = 0x00
+	if rawData[0]>>7 == 0x1 {
+		sign = 0xff
+	}
+	for i := 0; i < 8-l; i++ {
+		res[i] = sign
+	}
 	result = res
 	return
 }
 
-//Uint64ToByte params{b *[]byte,[]byte长度,isBigEndian,v uint64}
-func Uint64ToByte(b *[]byte, length int, isBigEndian bool, v uint64) {
-	if !isBigEndian {
+//Uint64ToByte params{b *[]byte,[]byte长度,BigEndian,v uint64}
+func Uint64ToByte(b *[]byte, length int, BigEndian bool, v uint64) {
+	if !BigEndian {
 		for i := 0; i < length; i++ {
 			(*b)[i] = byte(v >> (i * 8))
 		}
@@ -111,33 +119,34 @@ func Uint64ToHexString(v uint64) string {
 	return strconv.FormatUint(v, 16)
 }
 
-//ByteToUint64 byte根据大小端转换为uint64,params{b []byte,[]byte长度,isBigEndian},返回uint64
-func ByteToUint64(b []byte, length int, isBigEndian bool) (result uint64) {
+//ByteToInt64 byte根据大小端转换为uint64,params{b []byte,[]byte长度,BigEndian},返回uint64
+func ByteToInt64(b []byte, length int, BigEndian bool) (result int64) {
 	result = 0
-	if !isBigEndian {
-		for i := 0; i < length; i++ {
-			result |= uint64(b[i]) << (i * 8)
-		}
+
+	if BigEndian {
+		src := Complete8ByteBigEndian(b)
+
+		result = int64(binary.BigEndian.Uint64(src))
+
 	} else {
-		for i, j := 0, length-1; i < length && j >= 0; i, j = i+1, j-1 {
-			result |= uint64(b[i]) << (j * 8)
-		}
+		src := Complete8Byte(b)
+		result = int64(binary.LittleEndian.Uint64(src))
 	}
 	return
 }
 
-//ByteToFloat64 byte根据大小端转换为uint64,params{b []byte,[]byte长度,isBigEndian},返回uint64
-func ByteToFloat64(b []byte, length int, isBigEndian bool) float64 {
-	return float64(ByteToUint64(b, length, isBigEndian))
+//ByteToFloat64 byte根据大小端转换为uint64,params{b []byte,[]byte长度,BigEndian},返回uint64
+func ByteToFloat64(b []byte, length int, BigEndian bool) float64 {
+	return float64(ByteToInt64(b, length, BigEndian))
 }
 
 //ByteToFloatString byte根据指定大小端转float字符串
-func ByteToFloatString(bts []byte, isBigEndian bool, div, n float64) (string, error) {
-	return DivToFloatString(float64(ByteToUint64(bts, len(bts), isBigEndian)), div, n)
+func ByteToFloatString(bts []byte, BigEndian bool, div, n float64) (string, error) {
+	return DivToFloatString(float64(ByteToInt64(bts, len(bts), BigEndian)), div, n)
 }
 
-func ByteToDecString(bts []byte, isBigEndian bool) string {
-	return strconv.FormatInt(int64(ByteToUint64(bts, len(bts), isBigEndian)), 10)
+func ByteToDecString(bts []byte, BigEndian bool) string {
+	return strconv.FormatInt(int64(ByteToInt64(bts, len(bts), BigEndian)), 10)
 }
 
 //Float64ToString float64转成string并保留n位小数
@@ -145,12 +154,12 @@ func Float64ToString(f, n float64) string {
 	return strconv.FormatFloat(f, 'f', int(n), 64)
 }
 
-func StringToByte(b *[]byte, s string, base int, isBigEndian bool, length int) error {
+func StringToByte(b *[]byte, s string, base int, BigEndian bool, length int) error {
 	v, err := strconv.ParseUint(s, base, 64)
 	if err != nil {
 		return err
 	}
-	Uint64ToByte(b, length, isBigEndian, v)
+	Uint64ToByte(b, length, BigEndian, v)
 	return nil
 }
 
@@ -188,12 +197,12 @@ func Mutiply(f, multiplier float64) float64 {
 }
 
 //DivToByte f/div后转换为指定长度和大小端的[]byte
-func DivToByte(res *[]byte, isBigEndian bool, length int, f, div float64) error {
+func DivToByte(res *[]byte, BigEndian bool, length int, f, div float64) error {
 	v, err := Divide(f, div)
 	if err != nil {
 		return err
 	}
-	Uint64ToByte(res, length, isBigEndian, uint64(int(v)))
+	Uint64ToByte(res, length, BigEndian, uint64(int(v)))
 	return nil
 }
 
@@ -212,8 +221,8 @@ func MultiplyToFloatString(f, multiplier, n float64) string {
 }
 
 //Multiply f*multiplier后转换为指定长度和大小端的[]byte
-func MultiplyToByte(res *[]byte, isBigEndian bool, length int, f, multiplier float64) {
-	Uint64ToByte(res, length, isBigEndian, uint64(int(Mutiply(f, multiplier))))
+func MultiplyToByte(res *[]byte, BigEndian bool, length int, f, multiplier float64) {
+	Uint64ToByte(res, length, BigEndian, uint64(int(Mutiply(f, multiplier))))
 }
 
 func ReserveByteSlice(b *[]byte) {
