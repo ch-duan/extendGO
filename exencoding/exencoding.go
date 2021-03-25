@@ -4,9 +4,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"extendGo/exruntime"
 	"fmt"
 	"strconv"
+
+	"github.com/ch-duan/extendGO/exruntime"
 )
 
 func DecHex(n int64) string {
