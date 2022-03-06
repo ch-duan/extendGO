@@ -1,3 +1,3 @@
-module code.letsit.cn/chduan/extend
+module chduan/extend
 
 go 1.15
